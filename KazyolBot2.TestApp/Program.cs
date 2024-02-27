@@ -13,14 +13,18 @@
 using KazyolBot2;
 using KazyolBot2.Text;
 using KazyolBot2.Text.Expressions;
+using KazyolBot2.Text.Runtime;
 using KazyolBot2.Text.Tokens;
 using System.Text.Json;
 
 Console.InputEncoding = System.Text.Encoding.Unicode;
 Console.OutputEncoding = System.Text.Encoding.Unicode;
 
-var components = await JsonSerializer.DeserializeAsync<List<TextComponentInfo>>(File.OpenRead(@"C:\Users\instrex\source\repos\instrex\KazyolBot2\KazyolBot2\Data\text_components.json"),
-    options: new(JsonSerializerDefaults.Web));
+List<TextComponentInfo> components = default;
+
+using (var stream = File.OpenRead(@"C:\Users\instrex\source\repos\instrex\KazyolBot2\KazyolBot2\Data\text_components.json")) {
+    components = await JsonSerializer.DeserializeAsync<List<TextComponentInfo>>(stream, options: new(JsonSerializerDefaults.Web));
+}
 
 var storage = new ServerStorage();
 storage.TextFragments.Add(new() { Category = "ass", Text = "жопа" });
@@ -39,12 +43,12 @@ while (true) {
     try {
         CheckTokenizer(input);
 
-        var parser = new TextTemplateParser(input) { Components = components };
+        var parser = new TextTemplateParser(input, components);
         var expr = parser.GetExpression();
         Console.WriteLine(expr);
         Console.WriteLine();
 
-        var interpreter = new TextTemplateInterpreter(storage);
+        var interpreter = new TemplateInterpreter(storage);
         var warnings = interpreter.CheckArgumentHints(expr);
 
         if (warnings.Count > 0) {
@@ -58,10 +62,10 @@ while (true) {
         var template = new TextTemplate {
             Source = input,
             CompiledExpression = expr,
-            LangVersion = TextTemplateInterpreter.Version
+            LangVersion = TemplateInterpreter.Version
         };
 
-        Console.WriteLine($"Пример: \n{interpreter.Execute(template)}");
+        Console.WriteLine($"Пример: \n{interpreter.ExecuteExpression(template.CompiledExpression)}");
 
     } catch (SyntaxException ex) {
         

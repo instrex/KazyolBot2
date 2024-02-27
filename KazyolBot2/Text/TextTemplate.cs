@@ -1,5 +1,6 @@
 ﻿using KazyolBot2.Modules;
 using KazyolBot2.Text.Expressions;
+using KazyolBot2.Text.Runtime;
 using System.Text.Json.Serialization;
 
 namespace KazyolBot2.Text;
@@ -17,7 +18,7 @@ public class TextTemplate {
     public ITextExpression CompiledExpression { get; set; }
 
     public void Compile() {
-        var parser = new TextTemplateParser(Source) { Components = TemplateModule.TextComponents };
+        var parser = new TextTemplateParser(Source, TemplateModule.TextComponents);
         CompiledExpression = parser.GetExpression();
 
         if (parser.Peek().Type != Tokens.TokenType.EOF)
@@ -27,13 +28,18 @@ public class TextTemplate {
             };
     }
 
-    public string Execute(ServerStorage storage) {
+    public IValue.TemplateResult Execute(ServerStorage storage, Action<TemplateInterpreter> init = default) {
         if (CompiledExpression == null) 
             Compile();
 
         Views++;
 
-        var interpreter = new TextTemplateInterpreter(storage);
-        return interpreter.ExecuteExpression(CompiledExpression);
+        var interpreter = new TemplateInterpreter(storage);
+        init?.Invoke(interpreter);
+
+        var result = interpreter.ExecuteExpression(CompiledExpression);
+        return new IValue.TemplateResult {
+            Value = result.ToString()
+        };
     }
 }

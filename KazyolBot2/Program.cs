@@ -43,7 +43,7 @@ async Task OnReady() {
     var interactionService = new InteractionService(client);
 
     await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), null);
-    await interactionService.RegisterCommandsToGuildAsync(1206273190058270740);
+    await interactionService.RegisterCommandsToGuildAsync(469253457308680193);
 
     client.InteractionCreated += async interaction => {
         await interactionService.ExecuteCommandAsync(new SocketInteractionContext(client, interaction), null);

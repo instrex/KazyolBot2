@@ -1,4 +1,5 @@
 ﻿using KazyolBot2.Text.Tokens;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,14 +9,18 @@ using System.Threading.Tasks;
 namespace KazyolBot2.Text.Expressions;
 
 public class TextTemplateParser {
-    public List<TextComponentInfo> Components { get; set; }
+    readonly Dictionary<string, TextComponentInfo> _components;
 
     readonly List<Token> _source;
     int _pos;
 
-    public TextTemplateParser(string input) {
+    public TextTemplateParser(string input, List<TextComponentInfo> components = default) {
         var tokenizer = new Tokenizer(input);
         _source = tokenizer.GetTokens();
+
+        if (components != null) {
+            _components = components.ToDictionary(c => c.Codename, c => c);
+        }
     }
 
     public Token Peek(int offset = 0) {
@@ -41,36 +46,51 @@ public class TextTemplateParser {
     }
 
     public ITextExpression GetExpression() {
+        List<ITextExpression> concatList = default;
+
         var expr = Primary();
         while (Consume(TokenType.Plus, out var plusToken)) {
-            expr = new ITextExpression.Component(Components.FirstOrDefault(c => c.Codename == "concat"), [ expr, Primary() ]);
+            (concatList ??= [expr]).Add(Primary());
+        }
+
+        if (concatList != null) {
+            expr = new ITextExpression.Component(_components["concat"], concatList);
         }
 
         return expr;
     }
 
-    ITextExpression Primary() {
-        var token = Peek();
+    ITextExpression Component(Token openingToken) {
+        Consume(TokenType.LeftParen, out _);
 
-        // constants
-        if (token.Type == TokenType.String || token.Type == TokenType.Identifier || token.Type == TokenType.Number) {
-            var expr = new ITextExpression.Const(token);
-            _pos++;
+        var wrapIgnore = Consume(TokenType.Exclamation, out var exclamationToken);
 
-            return expr;
-        }
+        if (!Consume(TokenType.Identifier, out var identToken))
+            throw new SyntaxException {
+                Message = "Ожидалось название текстового компонента или переменной",
+                Position = openingToken.Position + 1
+            };
 
-        // components
-        if (token.Type == TokenType.LeftParen) {
-            Consume(TokenType.LeftParen, out _);
+        ITextExpression.Component comp = default;
 
-            if (!Consume(TokenType.Identifier, out var identToken)) 
+        // parse assignment
+        if (Consume(TokenType.Equals, out var equalsToken)) {
+            var value = GetExpression();
+            if (!Consume(TokenType.RightParen, out var _))
                 throw new SyntaxException {
-                    Message = "Ожидалось название текстового компонента",
-                    Position = token.Position + 1
+                    Message = "Ожидалась ')'",
+                    Position = Peek().Position
                 };
 
-            var info = Components.FirstOrDefault(c => c.Id.Contains(identToken.Content)) ?? 
+            comp = new ITextExpression.Component(_components["meta-set"], [new ITextExpression.Const(identToken), value]) {
+                Position = equalsToken.Position
+            };
+        }
+
+        // parse default component body
+        else {
+            var component = _components.FirstOrDefault(p => p.Value.Id.Contains(identToken.Content));
+            var info = component.Value ??
                 throw new SyntaxException {
                     Message = "Неизвестный текстовый компонент",
                     Position = identToken.Position
@@ -106,11 +126,46 @@ public class TextTemplateParser {
                     };
             }
 
-            var comp = new ITextExpression.Component(info, args) {
+            // save resulting expr
+            comp = new ITextExpression.Component(info, args) {
                 Position = identToken.Position
             };
+        }
 
-            return comp;
+        return wrapIgnore ?
+            new ITextExpression.Component(_components["ignore"], [comp]) { Position = exclamationToken.Position } :
+            comp;
+    }
+
+    ITextExpression Primary() {
+        var token = Peek();
+
+        // meta
+        if (token.Type == TokenType.Percent) {
+            _pos++;
+
+            if (!Consume(TokenType.Identifier, out var identifierToken))
+                throw new SyntaxException {
+                    Message = "Ожидался идентификатор переменной",
+                    Position = token.Position + 1
+                };
+
+            return new ITextExpression.Component(_components["meta-get"], [new ITextExpression.Const(identifierToken)]) { 
+                Position = token.Position
+            };
+        }
+
+        // constants
+        if (token.Type == TokenType.String || token.Type == TokenType.Identifier || token.Type == TokenType.Number) {
+            var expr = new ITextExpression.Const(token);
+            _pos++;
+
+            return expr;
+        }
+
+        // components
+        if (token.Type == TokenType.LeftParen) {
+            return Component(token);
         }
 
         throw new SyntaxException {

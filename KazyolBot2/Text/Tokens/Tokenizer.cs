@@ -19,6 +19,9 @@ public ref struct Tokenizer(ReadOnlySpan<char> source) {
                 ')' => TokenType.RightParen,
                 ',' => TokenType.Separator,
                 '+' => TokenType.Plus,
+                '=' => TokenType.Equals,
+                '%' => TokenType.Percent,
+                '!' => TokenType.Exclamation,
                 _ => null
             };
 

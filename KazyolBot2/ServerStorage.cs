@@ -25,6 +25,9 @@ public class ServerStorage {
     }
 
     public static async Task Load() {
+        if (!Directory.Exists(StorageDirectoryName))
+            return;
+
         foreach (var dir in Directory.GetDirectories(StorageDirectoryName)) {
             var guildIdString = Path.GetFileName(dir);
             if (!ulong.TryParse(guildIdString, out var guildId)) {

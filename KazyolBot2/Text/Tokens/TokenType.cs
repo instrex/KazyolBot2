@@ -8,5 +8,8 @@ public enum TokenType {
     LeftParen,
     RightParen,
     Plus,
+    Equals,
+    Percent,
+    Exclamation,
     EOF
 }

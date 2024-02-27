@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DotNext.Threading;
 using KazyolBot2.Text;
 using KazyolBot2.Text.Expressions;
+using KazyolBot2.Text.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -67,6 +68,11 @@ public class TemplateModule: InteractionModuleBase<SocketInteractionContext> {
         ]);
     }
 
+    void AddTemplateVariables(TemplateInterpreter interpreter) {
+        interpreter.Env.Set("юзер", new IValue.Str(Context.User.Username));
+        interpreter.Env.Set("сервер", new IValue.Str(Context.Guild.Name));
+    }
+
     [SlashCommand("тест", "Проверить шаблон на ошибки")]
     public async Task Test(string input) {
         var storage = ServerStorage.GetOrCreate(Context.Guild.Id);
@@ -79,7 +85,7 @@ public class TemplateModule: InteractionModuleBase<SocketInteractionContext> {
         };
 
         try {
-            var result = template.Execute(storage);
+            var result = template.Execute(storage, AddTemplateVariables);
             await ModifyOriginalResponseAsync(msg => {
                 msg.Content = $"```{input}```\n" + result;
             });
@@ -111,7 +117,7 @@ public class TemplateModule: InteractionModuleBase<SocketInteractionContext> {
         input = input.Trim('`');
 
         var template = new TextTemplate {
-            LangVersion = TextTemplateInterpreter.Version,
+            LangVersion = TemplateInterpreter.Version,
             AuthorId = Context.User.Id,
             Source = input,
             Name = name,
@@ -123,7 +129,7 @@ public class TemplateModule: InteractionModuleBase<SocketInteractionContext> {
         try {
             var results = new List<string>();
             for (var i = 0; i < 10; i++) {
-                results.Add(template.Execute(storage));
+                results.Add(template.Execute(storage, AddTemplateVariables).Value);
             }
 
             storage.ShouldSaveTemplates = true;
@@ -180,7 +186,7 @@ public class TemplateModule: InteractionModuleBase<SocketInteractionContext> {
         try {
             var result = "";
             for (var i = 0; i < repeat; i++) {
-                result += template.Execute(storage) + "\n";
+                result += template.Execute(storage, AddTemplateVariables) + "\n";
             }
 
             await ModifyOriginalResponseAsync(msg => {
