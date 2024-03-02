@@ -1,19 +1,23 @@
 ﻿using Cyriller;
 using Cyriller.Model;
 using KazyolBot2.Text.Expressions;
+using Newtonsoft.Json.Linq;
+using org.matheval;
+using System.Globalization;
 using System.Text;
-
+using System.Text.RegularExpressions;
 using static KazyolBot2.Text.Runtime.IValue;
 
 namespace KazyolBot2.Text.Runtime;
 
-public class TemplateInterpreter {
+public partial class TemplateInterpreter {
     public const string Version = "V2";
 
     public readonly ServerStorage Storage;
     public readonly EnvironmentTable Env;
 
-    public TemplateInterpreter(ServerStorage storage) {
+    public TemplateInterpreter(ServerStorage storage, bool debugMode = false) {
+        GraphicsEngine.DebugMode = debugMode;
         Storage = storage;
 
         // init env
@@ -33,10 +37,11 @@ public class TemplateInterpreter {
 
     public IValue ExecuteExpression(ITextExpression expr) {
         if (expr is ITextExpression.Const constExpr) {
-            return new Str(constExpr.Text.Type switch {
-                Tokens.TokenType.String => constExpr.Text.Content.Trim('"'),
-                _ => constExpr.Text.Content
-            });
+            return constExpr.Text.Type switch {
+                Tokens.TokenType.String => new Str(constExpr.Text.Content.Trim('"')),
+                Tokens.TokenType.Number => new Num(int.Parse(constExpr.Text.Content)),
+                _ => new Str(constExpr.Text.Content)
+            };
         }
 
         if (expr is ITextExpression.Component comp) {
@@ -58,7 +63,7 @@ public class TemplateInterpreter {
                     var setValue = ExecuteExpression(comp.Args[1]);
                     Env.Set(setIdent, setValue);
 
-                    return setValue;
+                    return Null();
 
                 case "template":
                     var templateName = ExecuteExpression(comp.Args[0]).ToString();
@@ -77,7 +82,45 @@ public class TemplateInterpreter {
 
                     return result;
 
+                case "table":
+                    var pairCount = comp.Args.Count / 2;
+                    var table = new Table([]);
+                    for (var i = 0; i < pairCount; i++) {
+                        var key = ExecuteExpression(comp.Args[i * 2]).ToString();
+                        var value = ExecuteExpression(comp.Args[i * 2 + 1]);
+                        table.Values[key] = value;
+                    }
+
+                    return table;
+
+                case "math":
+                    var mathExpr = new Expression(ExecuteExpression(comp.Args[0]).ToString());
+                    foreach (var (key, val) in Env.GetVariables()) {
+                        mathExpr.Bind(key, val switch {
+                            Num n => n.Value,
+                            _ => val.ToString()
+                        });
+                    }
+
+                    var mathResult = mathExpr.Eval();
+                    return mathResult switch {
+                        double d => new Num(d),
+                        string str => new Str(str),
+                        int i => new Num(i),
+                        float f => new Num(f),
+                        decimal dec => new Num((double)dec),
+                        _ => new Str(mathResult.ToString())
+                    };
+
                 // RANDOMNESS
+                case "random":
+                    var min = ExecuteExpression(comp.Args[0]);
+                    var max = ExecuteExpression(comp.Args[1]);
+                    ToNumber(min, out var numA);
+                    ToNumber(max, out var numB);
+
+                    return new Num(_random.Next((int)Math.Min(numA.Value, numB.Value), (int)Math.Max(numA.Value, numB.Value)));
+
                 case "choose-cat":
                     var categoryToChooseFrom = ExecuteExpression(comp.Args.FirstOrDefault()).ToString();
                     var fragments = Storage.TextFragments.GroupBy(t => t.Category)
@@ -101,6 +144,16 @@ public class TemplateInterpreter {
 
                     return Null();
 
+                case "choose-image":
+                    var imgCategory = ExecuteExpression(comp.Args.FirstOrDefault()).ToString();
+                    var imagePicks = Storage.Images.Where(img => img.Categories?.Contains(imgCategory) == true)
+                        .ToArray();
+
+                    if (imagePicks.Length == 0)
+                        return Null(); 
+
+                    return new Str(imagePicks[_random.Next(0, imagePicks.Length)].Name);
+
                 // TEXT MANIPULATION
                 case "linebreak":
                     return new Str("\n");
@@ -114,21 +167,30 @@ public class TemplateInterpreter {
                     return new Str(caseFormat switch {
                         "А" => textToBeCased.ToUpper(),
                         "а" => textToBeCased.ToLower(),
-                        "Аа" when textToBeCased.Length >= 2 => string.Concat(char.ToUpper(textToBeCased[0]).ToString(), textToBeCased[1..]),
-                        "Аа" when textToBeCased.Length < 2 => textToBeCased.ToUpper(),
+                        "Аа" => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(textToBeCased.ToLower()),
                         _ => textToBeCased
                     });
 
                 case "repeat":
-                    ToNumber(ExecuteExpression(comp.Args[0]), out var repeatCount, 1);
+                case "repeat-i":
+                    var argOffset = comp.Info.Codename is "repeat-i" ? 1 : 0;
+                    var iterName = argOffset == 1 ? ExecuteExpression(comp.Args[0]).ToString() : "шаг";
+
+                    ToNumber(ExecuteExpression(comp.Args[0 + argOffset]), out var repeatCount, 1);
                     if (repeatCount.Value < 0)
                         return Null();
 
                     var builder = new StringBuilder();
-                    var separator = comp.Args.Count >= 3 ? ExecuteExpression(comp.Args[2]).ToString() : string.Empty;
+                    var separator = comp.Args.Count >= 3 + argOffset ? ExecuteExpression(comp.Args[2 + argOffset]).ToString() : string.Empty;
                     for (var i = 0; i < repeatCount.Value; i++) {
                         if (i != 0) builder.Append(separator);
-                        builder.Append(ExecuteExpression(comp.Args[1]));
+
+                        Env.Push();
+
+                        Env.Set(iterName, new Num(i));
+                        builder.Append(ExecuteExpression(comp.Args[1 + argOffset]));
+
+                        Env.Pop();
                     }
 
                     return new Str(builder.ToString());
@@ -194,6 +256,8 @@ public class TemplateInterpreter {
                         return new Str(phrase);
                     }
             }
+
+            return ExecuteGraphicComponent(comp);
         }
 
         return Null();
@@ -201,7 +265,7 @@ public class TemplateInterpreter {
 
     static Null Null() => new();
 
-    static bool ToNumber(IValue value, out Num number, int defaultValue = 0) {
+    public static bool ToNumber(IValue value, out Num number, int defaultValue = 0) {
         switch (value) {
             default:
                 number = new Num(defaultValue);
@@ -212,6 +276,10 @@ public class TemplateInterpreter {
                 return true;
 
             case Str stringNumber when int.TryParse(stringNumber.Value, out var parsedNumber):
+                number = new Num(parsedNumber);
+                return true;
+
+            case Str stringNumber when double.TryParse(stringNumber.Value, out var parsedNumber):
                 number = new Num(parsedNumber);
                 return true;
         }

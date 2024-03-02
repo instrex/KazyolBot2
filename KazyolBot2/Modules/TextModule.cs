@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace KazyolBot2.Modules;
 
@@ -34,7 +35,7 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
     public async Task AutocompleteCategoryAdd() => await AutocompleteCategory();
 
     [SlashCommand("поиск", "Ищет айдишники страшных слов")]
-    public async Task Search(string text) {
+    public async Task Search([Summary(description: "Часть, либо полный текст для поиска")]string text) {
         var storage = ServerStorage.GetOrCreate(Context.Guild.Id);
         var foundItems = storage.TextFragments.Where(t => t.Text.StartsWith(text))
             .GroupBy(t => t.Category);
@@ -46,7 +47,7 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
 
         try {
             var count = foundItems.SelectMany(g => g).Count();
-            await RespondAsync($"Найдено {count} теста.", embed: count == 0 ? null : new EmbedBuilder()
+            await RespondAsync($"Найдено {count} совпадений.", embed: count == 0 ? null : new EmbedBuilder()
                 .WithFields(foundItems.Select(g => new EmbedFieldBuilder()
                     .WithName(g.Key)
                     .WithValue(string.Join("\n", g.Select(t => $"[`#{t.Id}`] {t.Text}"))))
@@ -57,8 +58,47 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
         }
     }
 
+    public static List<string> TokenizeString(string input) {
+        var output = new List<string>();
+        var textPos = 0;
+        while (textPos < input.Length) {
+            var ch = input[textPos++];
+
+            if (char.IsWhiteSpace(ch) || ch == ',')
+                continue;
+
+            if (ch == '"') {
+                var builder = new StringBuilder();
+                while (textPos < input.Length && input[textPos] != '"') {
+                    builder.Append(input[textPos]);
+                    textPos++;
+                }
+
+                output.Add(builder.ToString());
+                textPos++;
+
+                continue;
+            }
+
+            var word = new StringBuilder();
+            word.Append(ch);
+            while (textPos < input.Length && input[textPos] != ',') {
+                word.Append(input[textPos]);
+                textPos++;
+            }
+
+            output.Add(word.ToString());
+            textPos++;
+        }
+
+        return output;
+    }
+
     [SlashCommand("добавить", "Добавляет разделенные запятой слова в категорию")]
-    public async Task AddMany([Autocomplete] string category, string text) {
+    public async Task AddMany(
+        [Autocomplete][Summary(description: "Категория текста")] string category, 
+        [Summary(description: "Одно слово либо несколько разделенных запятыми")] string text) {
+
         var storage = ServerStorage.GetOrCreate(Context.Guild.Id);
         storage.ShouldSaveFragments = true;
 
@@ -67,42 +107,10 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
             return;
         }
 
-        var words = new List<string>();
         var addedFragments = new List<TextFragment>();
         var duplicateFragments = new List<TextFragment>();
 
-        var textPos = 0;
-        while (textPos < text.Length) {
-            var ch = text[textPos++];
-
-            if (char.IsWhiteSpace(ch) || ch == ',')
-                continue;
-
-            if (ch == '"') {
-                var builder = new StringBuilder();
-                while (textPos < text.Length && text[textPos] != '"') {
-                    builder.Append(text[textPos]);
-                    textPos++;
-                }
-
-                words.Add(builder.ToString());
-                textPos++;
-
-                continue;
-            }
-
-            var word = new StringBuilder();
-            word.Append(ch);
-            while (textPos < text.Length && text[textPos] != ',') {
-                word.Append(text[textPos]);
-                textPos++;
-            }
-
-            words.Add(word.ToString());
-            textPos++;
-        }
-
-        foreach (var item in words) {
+        foreach (var item in TokenizeString(text)) {
             var fragment = new TextFragment {
                 Id = storage.LastTextFragmentId++,
                 AuthorId = Context.User.Id,
@@ -131,8 +139,9 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
         await RespondAsync(message);
     }
 
-    [SlashCommand("убрать", "Удаляет текст по Id")]
-    public async Task Remove(string ids) {
+    [SlashCommand("убрать", "Удаляет текст или несколько слов по Id")]
+    public async Task Remove(
+        [Summary(description: "Id слов на удаление, разделенные запятой")] string ids) {
         var storage = ServerStorage.GetOrCreate(Context.Guild.Id);
 
         var removedFragments = new List<TextFragment>();

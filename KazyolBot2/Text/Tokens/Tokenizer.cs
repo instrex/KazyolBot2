@@ -22,6 +22,7 @@ public ref struct Tokenizer(ReadOnlySpan<char> source) {
                 '=' => TokenType.Equals,
                 '%' => TokenType.Percent,
                 '!' => TokenType.Exclamation,
+                ':' => TokenType.Colon,
                 _ => null
             };
 

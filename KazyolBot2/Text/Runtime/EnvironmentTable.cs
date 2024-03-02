@@ -35,4 +35,12 @@ public class EnvironmentTable {
     public void Set(string id, IValue value) {
         _scopes[_depth - 1][id] = value;
     }
+
+    public IEnumerable<KeyValuePair<string, IValue>> GetVariables() {
+        for (var i = _depth - 1; i >= 0; i--) {
+            foreach (var pair in _scopes[i]) {
+                yield return pair;
+            }
+        }
+    }
 }

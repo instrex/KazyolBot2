@@ -1,6 +1,8 @@
 ﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,12 +15,18 @@ public interface IValue {
         public override string ToString() => Value;
     }
 
-    record Num(int Value) : IValue {
+    record Num(double Value) : IValue {
         public override string ToString() => Value.ToString();
     }
 
     record TemplateResult : IValue {
         public string Value { get; set; }
+        public Stream ImageStream { get; set; }
+        public string ImageFormat { get; set; }
         public override string ToString() => Value;
+    }
+
+    record Table(Dictionary<string, IValue> Values) : IValue {
+        public override string ToString() => $"({string.Join(", ", Values.Select(p => $"{p.Key}: {p.Value}"))})";
     }
 }

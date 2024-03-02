@@ -11,5 +11,6 @@ public enum TokenType {
     Equals,
     Percent,
     Exclamation,
+    Colon,
     EOF
 }

@@ -87,6 +87,44 @@ public class TextTemplateParser {
             };
         }
 
+        // parse table
+        else if (Consume(TokenType.Colon, out var colonToken)) {
+            // save first pair
+            List<ITextExpression> args = [ 
+                new ITextExpression.Const(identToken),
+                GetExpression()
+            ];
+
+            while (Consume(TokenType.Separator, out var separatorToken)) {
+                if (!Consume(TokenType.Identifier, out var keyToken))
+                    throw new SyntaxException {
+                        Message = "Ожидалось название значения или ')'",
+                        Position = separatorToken.Position + 1
+                    };
+
+                args.Add(new ITextExpression.Const(keyToken));
+
+                if (!Consume(TokenType.Colon, out var colonToken2))
+                    throw new SyntaxException {
+                        Message = "Ожидалось ':'",
+                        Position = keyToken.Position + 1
+                    };
+
+                var value = GetExpression();
+                args.Add(value);
+            }
+
+            if (!Consume(TokenType.RightParen, out var closingParen))
+                throw new SyntaxException {
+                    Message = "Ожидалась ')'",
+                    Position = Peek().Position
+                };
+
+            comp = new ITextExpression.Component(_components["table"], args) {
+                Position = identToken.Position
+            };
+        }
+
         // parse default component body
         else {
             var component = _components.FirstOrDefault(p => p.Value.Id.Contains(identToken.Content));

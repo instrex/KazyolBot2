@@ -10,12 +10,12 @@ var client = new DiscordSocketClient(new DiscordSocketConfig {
     UseInteractionSnowflakeDate = false
 });
 
-AppDomain.CurrentDomain.ProcessExit += (_, _) => Save();
+AppDomain.CurrentDomain.ProcessExit += (_, _) => Save(true);
 
 Console.WriteLine("Preparing Storage...");
 await ServerStorage.Load();
 
-var timer = new Timer((_) => Save(), null, 1000, 10000);
+var timer = new Timer((_) => Save(false), null, 1000, 10000);
 
 client.Ready += OnReady;
 
@@ -28,13 +28,13 @@ Console.WriteLine($"Hello, [K4ZY0L]!");
 
 await Task.Delay(-1);
 
-void Save() {
+void Save(bool isShuttingDown) {
     foreach (var (guildId, store) in ServerStorage.ByGuildId) {
         if (!store.ShouldSave)
             continue;
 
         // run save method synchronously
-        store.Save().GetAwaiter().GetResult();
+        store.Save(isShuttingDown).GetAwaiter().GetResult();
     }
 }
 
@@ -43,9 +43,12 @@ async Task OnReady() {
     var interactionService = new InteractionService(client);
 
     await interactionService.AddModulesAsync(Assembly.GetEntryAssembly(), null);
+    await interactionService.RegisterCommandsToGuildAsync(1206273190058270740);
     await interactionService.RegisterCommandsToGuildAsync(469253457308680193);
 
     client.InteractionCreated += async interaction => {
         await interactionService.ExecuteCommandAsync(new SocketInteractionContext(client, interaction), null);
     };
+
+    await client.SetCustomStatusAsync("V2 BETA");
 }
