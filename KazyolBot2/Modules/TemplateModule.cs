@@ -22,10 +22,14 @@ namespace KazyolBot2.Modules;
 [Group("шаблон", "Команды для генерации смешного (или не очень) контента!")]
 public class TemplateModule : InteractionModuleBase<SocketInteractionContext> {
     public static readonly List<TextComponentInfo> TextComponents;
+    public static readonly Dictionary<string, string> TranslitPairs;
 
     static TemplateModule() {
-        using var stream = File.OpenRead(Path.Combine(ServerStorage.DataDirectoryName, "text_components.json"));
-        TextComponents = JsonSerializer.Deserialize<List<TextComponentInfo>>(stream, options: new(JsonSerializerDefaults.Web));
+        using var componentStream = File.OpenRead(Path.Combine(ServerStorage.DataDirectoryName, "text_components.json"));
+        TextComponents = JsonSerializer.Deserialize<List<TextComponentInfo>>(componentStream, options: new(JsonSerializerDefaults.Web));
+        TranslitPairs = File.ReadAllLines(Path.Combine(ServerStorage.DataDirectoryName, "translit.csv"))
+            .Select(p => p.Split(','))
+            .ToDictionary(p => p[0].Trim(), p => p[1].Trim());
     }
 
     [AutocompleteCommand("component", "помогите")]

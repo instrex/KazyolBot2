@@ -44,13 +44,17 @@ public partial class TemplateInterpreter {
                         throw new InvalidOperationException($"Превышен лимит размера кадра анимации 640x640.");
                     }
 
-                    var frameLogic = comp.Args[3];
+                    if (Env.Get("фпс") is null)
+                        Env.Set("фпс", new IValue.Num(50));
 
+                    var frameLogic = comp.Args[3];
                     for (var i = 0; i < frameNumber.Value; i++) {
                         GraphicsEngine.BeginFrame((int)widthNumber.Value, (int)heightNumber.Value);
 
                         Env.Push();
                         Env.Set("кадр", new IValue.Num(i));
+                        Env.Set("кадр-шир", widthNumber);
+                        Env.Set("кадр-выс", heightNumber);
 
                         ExecuteExpression(frameLogic);
 

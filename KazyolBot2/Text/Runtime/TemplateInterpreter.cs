@@ -1,5 +1,6 @@
 ﻿using Cyriller;
 using Cyriller.Model;
+using KazyolBot2.Modules;
 using KazyolBot2.Text.Expressions;
 using Newtonsoft.Json.Linq;
 using org.matheval;
@@ -96,7 +97,7 @@ public partial class TemplateInterpreter {
                 case "math":
                     var mathExpr = new Expression(ExecuteExpression(comp.Args[0]).ToString());
                     foreach (var (key, val) in Env.GetVariables()) {
-                        mathExpr.Bind(key, val switch {
+                        mathExpr.Bind(key.Replace('-', '_'), val switch {
                             Num n => n.Value,
                             _ => val.ToString()
                         });
@@ -159,7 +160,19 @@ public partial class TemplateInterpreter {
                     return new Str("\n");
 
                 case "concat":
-                    return new Str(string.Concat(comp.Args.Select(ExecuteExpression)));
+                    var concatItems = comp.Args.Select(ExecuteExpression)
+                        .ToList();
+
+                    if (concatItems.All(c => c is Table)) {
+                        var resultTable = new Dictionary<string, IValue>();
+                        foreach (var (key, v) in concatItems.OfType<Table>().SelectMany(p => p.Values.ToList())) {
+                            resultTable[key] = v;
+                        }
+
+                        return new Table(resultTable);
+                    }
+
+                    return new Str(string.Concat(concatItems));
 
                 case "letter-case": 
                     var caseFormat = ExecuteExpression(comp.Args[0]).ToString();
@@ -170,6 +183,15 @@ public partial class TemplateInterpreter {
                         "Аа" => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(textToBeCased.ToLower()),
                         _ => textToBeCased
                     });
+
+                case "translit":
+                    var textToTranslit = ExecuteExpression(comp.Args[0]).ToString();
+                    foreach (var (orig, sub) in TemplateModule.TranslitPairs) {
+                        textToTranslit = textToTranslit.Replace(orig, sub)
+                            .Replace(orig.ToUpper(), sub.ToUpper());
+                    }
+
+                    return new Str(textToTranslit);
 
                 case "repeat":
                 case "repeat-i":
@@ -185,12 +207,8 @@ public partial class TemplateInterpreter {
                     for (var i = 0; i < repeatCount.Value; i++) {
                         if (i != 0) builder.Append(separator);
 
-                        Env.Push();
-
                         Env.Set(iterName, new Num(i));
                         builder.Append(ExecuteExpression(comp.Args[1 + argOffset]));
-
-                        Env.Pop();
                     }
 
                     return new Str(builder.ToString());

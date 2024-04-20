@@ -46,9 +46,15 @@ async Task OnReady() {
     await interactionService.RegisterCommandsToGuildAsync(1206273190058270740);
     await interactionService.RegisterCommandsToGuildAsync(469253457308680193);
 
+    // 1209897272784191488
+    var wakeUpChannel = client.GetGuild(1206273190058270740)
+        .GetTextChannel(1209897272784191488);
+
+    await wakeUpChannel.SendMessageAsync("Привет педики!!!");
+
     client.InteractionCreated += async interaction => {
         await interactionService.ExecuteCommandAsync(new SocketInteractionContext(client, interaction), null);
     };
 
-    await client.SetCustomStatusAsync("V2 BETA");
+    await client.SetCustomStatusAsync("V3 BETA");
 }

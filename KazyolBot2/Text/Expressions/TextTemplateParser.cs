@@ -182,14 +182,19 @@ public class TextTemplateParser {
         if (token.Type == TokenType.Percent) {
             _pos++;
 
-            if (!Consume(TokenType.Identifier, out var identifierToken))
-                throw new SyntaxException {
-                    Message = "Ожидался идентификатор переменной",
-                    Position = token.Position + 1
+            if (Consume(TokenType.Identifier, out var identifierToken)) {
+                return new ITextExpression.Component(_components["meta-get"], [new ITextExpression.Const(identifierToken)]) {
+                    Position = token.Position
                 };
 
-            return new ITextExpression.Component(_components["meta-get"], [new ITextExpression.Const(identifierToken)]) { 
-                Position = token.Position
+            } else if (Consume(TokenType.String, out var calcToken)) {
+                return new ITextExpression.Component(_components["math"], [new ITextExpression.Const(calcToken)]) { 
+                    Position = token.Position 
+                };
+
+            } else throw new SyntaxException {
+                Message = "Ожидался идентификатор переменной или строка счёта",
+                Position = token.Position + 1
             };
         }
 
