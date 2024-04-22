@@ -27,15 +27,6 @@ using (var stream = File.OpenRead(@"C:\Users\instrex\source\repos\instrex\Kazyol
 }
 
 var storage = new ServerStorage();
-storage.TextFragments.Add(new() { Category = "ass", Text = "жопа" });
-storage.TextFragments.Add(new() { Category = "ass", Text = "попа" });
-storage.TextFragments.Add(new() { Category = "ass", Text = "задница" });
-storage.TextFragments.Add(new() { Category = "boobs", Text = "сиська" });
-storage.TextFragments.Add(new() { Category = "boobs", Text = "титичька" });
-storage.TextFragments.Add(new() { Category = "boobs", Text = "грудь" });
-storage.TextFragments.Add(new() { Category = "personality", Text = "ляжки" });
-storage.TextFragments.Add(new() { Category = "personality", Text = "ножки" });
-storage.TextFragments.Add(new() { Category = "personality", Text = "пяточки" });
 
 while (true) {
     var input = Console.ReadLine();
