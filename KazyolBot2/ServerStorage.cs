@@ -19,6 +19,8 @@ public class ServerStorage {
     public const string StorageDirectoryName = "Storage";
     public const string DataDirectoryName = "Data";
 
+    public static string TokenFileName => Path.Combine(DataDirectoryName, "token.txt");
+
     public static ConcurrentDictionary<ulong, ServerStorage> ByGuildId { get; } = [];
     public static ServerStorage GetOrCreate(ulong guildId) {
         if (ByGuildId.TryGetValue(guildId, out var storage))

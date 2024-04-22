@@ -74,6 +74,11 @@ public partial class ImageTemplateEngine {
         var color = Color.White;
         var opacity = 255;
 
+        var sourceX = 0;
+        var sourceY = 0;
+        var sourceW = img.Width;
+        var sourceH = img.Height;
+
         foreach (var (key, val) in props) {
             switch (key) {
                 case "цв":
@@ -83,8 +88,32 @@ public partial class ImageTemplateEngine {
                 case "пр" when TemplateInterpreter.ToNumber(val, out var opacityNum):
                     opacity = (int)opacityNum.Value;
                     break;
+
+                case "обрезх" when TemplateInterpreter.ToNumber(val, out var sourceXNum):
+                    sourceX = (int)(sourceXNum.Value * img.Width);
+                    break;
+
+                case "обрезу" when TemplateInterpreter.ToNumber(val, out var sourceYNum):
+                    sourceY = (int)(sourceYNum.Value * img.Height);
+                    break;
+
+                case "обрезш" when TemplateInterpreter.ToNumber(val, out var sourceWNum):
+                    sourceW = (int)(sourceWNum.Value * img.Width);
+                    break;
+
+                case "обрезв" when TemplateInterpreter.ToNumber(val, out var sourceHNum):
+                    sourceH = (int)(sourceHNum.Value * img.Height);
+                    break;
             }
         }
+
+        // adjust source rectangle
+        //if (sourceX != 0 || sourceY != 0 || sourceW != img.Width || sourceH != img.Height) {
+        //    var wFactor = width / (float)img.Width;
+        //    var hFactor = height / (float)img.Height;
+        //    (sourceX, sourceY) = ((int)(sourceX * wFactor), (int)(sourceY * hFactor));
+        //    (sourceW, sourceH) = ((int)(sourceW / wFactor), (int)(sourceH / hFactor));
+        //}
 
         if (color != Color.White || opacity != 255) {
             attr.SetColorMatrix(new ColorMatrix([
@@ -97,7 +126,7 @@ public partial class ImageTemplateEngine {
         }
 
         _currentGraphics.DrawImage(img, new Rectangle((int)(-width * (originX ?? 0)), (int)(-height * (originY ?? 0)), width, height),
-            0, 0, img.Width, img.Height, GraphicsUnit.Pixel, attr);
+            sourceX, sourceY, sourceW, sourceH, GraphicsUnit.Pixel, attr);
 
         if (transformApplied) _currentGraphics.ResetTransform();
     }

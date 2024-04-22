@@ -200,12 +200,6 @@ public class TemplateModule : InteractionModuleBase<SocketInteractionContext> {
         });
     }
 
-    [SlashCommand("инфо", "Высвечивает информацию и код шаблона")]
-    public async Task Info(string name) {
-        var storage = ServerStorage.GetOrCreate(Context.Guild.Id);
-
-    }
-
     [SlashCommand("добавить", "Добавляет или изменяет текстовый шаблон")]
     public async Task Add(string name, string input) {
         await DeferAsync();

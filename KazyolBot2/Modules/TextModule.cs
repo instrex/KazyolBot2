@@ -53,7 +53,7 @@ public class TextModule : InteractionModuleBase<SocketInteractionContext> {
                     .WithValue(string.Join("\n", g.Select(t => $"[`#{t.Id}`] {t.Text}"))))
                     .ToArray()
                 ).Build());
-        } catch (Exception ex) {
+        } catch (Exception) {
             await RespondAsync("Слишком обширный поиск, попробуй что-нибудь конкретнее.");
         }
     }

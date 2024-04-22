@@ -21,7 +21,7 @@ client.Ready += OnReady;
 
 Console.WriteLine("Starting the bot...");
 
-await client.LoginAsync(Discord.TokenType.Bot, "NDY5MjUyNDE4OTUwMDA0NzM2.GiYJsU.kZEAsn2_7rMXbmepQRKDrvlCZXeEWfKYTlkALM");
+await client.LoginAsync(TokenType.Bot, await File.ReadAllTextAsync(ServerStorage.TokenFileName));
 await client.StartAsync();
 
 Console.WriteLine($"Hello, [K4ZY0L]!");
@@ -46,15 +46,9 @@ async Task OnReady() {
     await interactionService.RegisterCommandsToGuildAsync(1206273190058270740);
     await interactionService.RegisterCommandsToGuildAsync(469253457308680193);
 
-    // 1209897272784191488
-    var wakeUpChannel = client.GetGuild(1206273190058270740)
-        .GetTextChannel(1209897272784191488);
-
-    await wakeUpChannel.SendMessageAsync("Привет педики!!!");
-
     client.InteractionCreated += async interaction => {
         await interactionService.ExecuteCommandAsync(new SocketInteractionContext(client, interaction), null);
     };
 
-    await client.SetCustomStatusAsync("V3 BETA");
+    await client.SetCustomStatusAsync("V3.1");
 }
